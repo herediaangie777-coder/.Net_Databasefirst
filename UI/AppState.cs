@@ -165,6 +165,20 @@ public sealed class AppState
         return await SiguienteCodigoVentaAsync(db);
     }
 
+    // Métodos para Categorías
+public static async Task<List<Categoria>> ObtenerCategoriasAsync()
+{
+    using var db = new WinformsDbContext();
+    return await db.Categorias.AsNoTracking().ToListAsync();
+}
+
+public static async Task AgregarCategoriaAsync(Categoria categoria)
+{
+    using var db = new WinformsDbContext();
+    await db.Categorias.AddAsync(categoria);
+    await db.SaveChangesAsync();
+}
+
     private static IQueryable<Usuario> FiltrarUsuarios(IQueryable<Usuario> query, string criterio) => query.Where(item => item.Codigo.ToString().Contains(criterio) || item.Nombre.Contains(criterio) || item.Correo.Contains(criterio));
     private static async Task<int> SiguienteCodigoUsuarioAsync(WinformsDbContext db) => (await db.Usuarios.Select(item => (int?)item.Codigo).MaxAsync() ?? 0) + 1;
     private static async Task<int> SiguienteCodigoUsuarioAsync(WinformsDbContext db, int rol) => (await db.Usuarios.Where(item => item.Rol == rol).Select(item => (int?)item.Codigo).MaxAsync() ?? 0) + 1;

@@ -12,6 +12,8 @@ public partial class WinformsDbContext : DbContext
     {
     }
 
+    public virtual DbSet<Categoria> Categorias { get; set; }
+
     public virtual DbSet<Detallesventum> Detallesventa { get; set; }
 
     public virtual DbSet<Producto> Productos { get; set; }
@@ -25,6 +27,23 @@ public partial class WinformsDbContext : DbContext
         modelBuilder
             .UseCollation("utf8mb4_general_ci")
             .HasCharSet("utf8mb4");
+
+        modelBuilder.Entity<Categoria>(entity =>
+        {
+            entity.HasKey(e => e.IdCategoria).HasName("PRIMARY");
+
+            entity.ToTable("categorias");
+
+            entity.Property(e => e.IdCategoria)
+                .HasColumnType("int(11)")
+                .HasColumnName("id_categoria");
+            entity.Property(e => e.Descripcion)
+                .HasMaxLength(150)
+                .HasColumnName("descripcion");
+            entity.Property(e => e.Nombre)
+                .HasMaxLength(50)
+                .HasColumnName("nombre");
+        });
 
         modelBuilder.Entity<Detallesventum>(entity =>
         {
