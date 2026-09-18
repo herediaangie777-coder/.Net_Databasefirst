@@ -37,9 +37,9 @@ public sealed class ProductosControl : UserControl
         formulario.Controls.Add(ControlUi.Etiqueta("Stock mínimo"), 0, 3); formulario.Controls.Add(stockMinimo, 1, 3); formulario.Controls.Add(activo, 3, 3);
 
         Panel acciones = new() { Dock = DockStyle.Top, Height = 48 };
-        Button agregar = ControlUi.Boton("Agregar producto"); agregar.Click += (_, _) => Agregar();
-        Button eliminar = ControlUi.Boton("Eliminar seleccionado"); eliminar.Click += (_, _) => Eliminar();
-        Button refrescar = ControlUi.Boton("Refrescar tabla"); refrescar.Click += (_, _) => RefrescarDatos();
+        Button agregar = ControlUi.Boton("Agregar producto"); agregar.Click += async (_, _) => await AgregarAsync();
+        Button eliminar = ControlUi.Boton("Eliminar seleccionado"); eliminar.Click += async (_, _) => await EliminarAsync();
+        Button refrescar = ControlUi.Boton("Refrescar tabla"); refrescar.Click += async (_, _) => await RefrescarDatosAsync();
         acciones.Controls.Add(agregar); acciones.Controls.Add(eliminar); acciones.Controls.Add(refrescar);
         Panel busqueda = ControlUi.Busqueda(txtBuscar, (_, _) => RefrescarDatos(), (_, _) => { txtBuscar.Clear(); RefrescarDatos(); });
 
@@ -48,13 +48,18 @@ public sealed class ProductosControl : UserControl
         RefrescarDatos();
     }
 
-    public void RefrescarDatos()
+    public async void RefrescarDatos()
     {
-        try { grid.DataSource = appState.ObtenerProductos(txtBuscar.Text); }
+        await RefrescarDatosAsync();
+    }
+
+    private async Task RefrescarDatosAsync()
+    {
+        try { grid.DataSource = await appState.ObtenerProductosAsync(txtBuscar.Text); }
         catch (Exception exception) { MostrarError(exception); }
     }
 
-    private void Agregar()
+    private async Task AgregarAsync()
     {
         if (string.IsNullOrWhiteSpace(nombre.Text) || string.IsNullOrWhiteSpace(categoria.Text) || precio.Value <= 0)
         {
@@ -63,17 +68,17 @@ public sealed class ProductosControl : UserControl
         }
         try
         {
-            appState.AgregarProducto(new Producto { Nombre = nombre.Text.Trim(), Categoria = categoria.Text.Trim(), Descripcion = descripcion.Text.Trim(), PrecioVenta = precio.Value, StockActual = (int)stock.Value, StockMinimo = (int)stockMinimo.Value, Impuesto = 0.19f, Activo = activo.Checked });
+            await appState.AgregarProductoAsync(new Producto { Nombre = nombre.Text.Trim(), Categoria = categoria.Text.Trim(), Descripcion = descripcion.Text.Trim(), PrecioVenta = precio.Value, StockActual = (int)stock.Value, StockMinimo = (int)stockMinimo.Value, Impuesto = 0.19f, Activo = activo.Checked });
             Limpiar();
-            RefrescarDatos();
+            await RefrescarDatosAsync();
         }
         catch (Exception exception) { MostrarError(exception); }
     }
 
-    private void Eliminar()
+    private async Task EliminarAsync()
     {
         if (grid.CurrentRow?.DataBoundItem is not Producto producto) return;
-        try { appState.EliminarProducto(producto.Codigo); RefrescarDatos(); }
+        try { await appState.EliminarProductoAsync(producto.Codigo); await RefrescarDatosAsync(); }
         catch (Exception exception) { MostrarError(exception); }
     }
 

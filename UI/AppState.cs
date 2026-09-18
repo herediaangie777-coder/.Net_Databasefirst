@@ -9,46 +9,29 @@ public sealed class AppState
     public const int RolCliente = 1;
     public const int RolEmpleado = 2;
 
-    private readonly string connectionString;
-
-    public AppState(string? connectionString = null)
+    public async Task<List<Usuario>> ObtenerUsuariosAsync(int? rol = null, string? filtro = null)
     {
-        this.connectionString = connectionString
-            ?? Environment.GetEnvironmentVariable("WINFORMS_DB_CONNECTION")
-            ?? "Server=localhost;Port=3306;Database=winforms_db;User ID=root;Password=;";
-    }
-
-    public WinformsDbContext CrearContexto()
-    {
-        DbContextOptions<WinformsDbContext> options = new DbContextOptionsBuilder<WinformsDbContext>()
-            .UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
-            .Options;
-        return new WinformsDbContext(options);
-    }
-
-    public List<Usuario> ObtenerUsuarios(int? rol = null, string? filtro = null)
-    {
-        using var context = CrearContexto();
-        IQueryable<Usuario> query = context.Usuarios.AsNoTracking();
+        using var db = new WinformsDbContext();
+        IQueryable<Usuario> query = db.Usuarios.AsNoTracking();
         if (rol.HasValue) query = query.Where(item => item.Rol == rol.Value);
         if (!string.IsNullOrWhiteSpace(filtro)) query = FiltrarUsuarios(query, filtro.Trim());
-        return query.OrderBy(item => item.Nombre).ToList();
+        return await query.OrderBy(item => item.Nombre).ToListAsync();
     }
 
-    public Usuario AgregarUsuario(Usuario usuario)
+    public async Task<Usuario> AgregarUsuarioAsync(Usuario usuario)
     {
-        using var context = CrearContexto();
+        using var db = new WinformsDbContext();
         usuario.Id = 0;
-        usuario.Codigo = SiguienteCodigoUsuario(context);
-        context.Usuarios.Add(usuario);
-        context.SaveChanges();
+        usuario.Codigo = await SiguienteCodigoUsuarioAsync(db);
+        db.Usuarios.Add(usuario);
+        await db.SaveChangesAsync();
         return usuario;
     }
 
-    public bool ActualizarUsuario(Usuario usuario)
+    public async Task<bool> ActualizarUsuarioAsync(Usuario usuario)
     {
-        using var context = CrearContexto();
-        Usuario? existente = context.Usuarios.FirstOrDefault(item => item.Id == usuario.Id);
+        using var db = new WinformsDbContext();
+        Usuario? existente = await db.Usuarios.FirstOrDefaultAsync(item => item.Id == usuario.Id);
         if (existente is null) return false;
         existente.Codigo = usuario.Codigo;
         existente.Nombre = usuario.Nombre;
@@ -57,45 +40,45 @@ public sealed class AppState
         existente.Activo = usuario.Activo;
         existente.Rol = usuario.Rol;
         existente.Direccion = usuario.Direccion;
-        context.SaveChanges();
+        await db.SaveChangesAsync();
         return true;
     }
 
-    public bool EliminarUsuario(int id)
+    public async Task<bool> EliminarUsuarioAsync(int id)
     {
-        using var context = CrearContexto();
-        Usuario? usuario = context.Usuarios.FirstOrDefault(item => item.Id == id);
+        using var db = new WinformsDbContext();
+        Usuario? usuario = await db.Usuarios.FirstOrDefaultAsync(item => item.Id == id);
         if (usuario is null) return false;
-        context.Usuarios.Remove(usuario);
-        context.SaveChanges();
+        db.Usuarios.Remove(usuario);
+        await db.SaveChangesAsync();
         return true;
     }
 
-    public List<Producto> ObtenerProductos(string? filtro = null)
+    public async Task<List<Producto>> ObtenerProductosAsync(string? filtro = null)
     {
-        using var context = CrearContexto();
-        IQueryable<Producto> query = context.Productos.AsNoTracking();
+        using var db = new WinformsDbContext();
+        IQueryable<Producto> query = db.Productos.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(filtro))
         {
             string criterio = filtro.Trim();
             query = query.Where(item => item.Codigo.ToString().Contains(criterio) || item.Nombre.Contains(criterio) || item.Categoria.Contains(criterio));
         }
-        return query.OrderBy(item => item.Nombre).ToList();
+        return await query.OrderBy(item => item.Nombre).ToListAsync();
     }
 
-    public Producto AgregarProducto(Producto producto)
+    public async Task<Producto> AgregarProductoAsync(Producto producto)
     {
-        using var context = CrearContexto();
-        producto.Codigo = SiguienteCodigoProducto(context);
-        context.Productos.Add(producto);
-        context.SaveChanges();
+        using var db = new WinformsDbContext();
+        producto.Codigo = await SiguienteCodigoProductoAsync(db);
+        db.Productos.Add(producto);
+        await db.SaveChangesAsync();
         return producto;
     }
 
-    public bool ActualizarProducto(Producto producto)
+    public async Task<bool> ActualizarProductoAsync(Producto producto)
     {
-        using var context = CrearContexto();
-        Producto? existente = context.Productos.FirstOrDefault(item => item.Codigo == producto.Codigo);
+        using var db = new WinformsDbContext();
+        Producto? existente = await db.Productos.FirstOrDefaultAsync(item => item.Codigo == producto.Codigo);
         if (existente is null) return false;
         existente.Nombre = producto.Nombre;
         existente.Categoria = producto.Categoria;
@@ -105,77 +88,86 @@ public sealed class AppState
         existente.StockMinimo = producto.StockMinimo;
         existente.Activo = producto.Activo;
         existente.Impuesto = producto.Impuesto;
-        context.SaveChanges();
+        await db.SaveChangesAsync();
         return true;
     }
 
-    public bool EliminarProducto(int codigo)
+    public async Task<bool> EliminarProductoAsync(int codigo)
     {
-        using var context = CrearContexto();
-        Producto? producto = context.Productos.FirstOrDefault(item => item.Codigo == codigo);
+        using var db = new WinformsDbContext();
+        Producto? producto = await db.Productos.FirstOrDefaultAsync(item => item.Codigo == codigo);
         if (producto is null) return false;
-        context.Productos.Remove(producto);
-        context.SaveChanges();
+        db.Productos.Remove(producto);
+        await db.SaveChangesAsync();
         return true;
     }
 
-    public List<Venta> ObtenerVentas(string? filtro = null)
+    public async Task<List<Venta>> ObtenerVentasAsync(string? filtro = null)
     {
-        using var context = CrearContexto();
-        IQueryable<Venta> query = context.Ventas.AsNoTracking().Include(item => item.Cliente).Include(item => item.Empleado).Include(item => item.Detallesventa).ThenInclude(item => item.ProductoCodigoNavigation);
+        using var db = new WinformsDbContext();
+        IQueryable<Venta> query = db.Ventas
+            .AsNoTracking()
+            .Include(item => item.Cliente)
+            .Include(item => item.Empleado)
+            .Include(item => item.Detallesventa)
+            .ThenInclude(item => item.ProductoCodigoNavigation);
         if (!string.IsNullOrWhiteSpace(filtro))
         {
             string criterio = filtro.Trim();
             query = query.Where(item => item.Codigo.ToString().Contains(criterio) || item.Cliente.Nombre.Contains(criterio) || item.Empleado.Nombre.Contains(criterio));
         }
-        return query.OrderByDescending(item => item.FechaVenta).ToList();
+        return await query.OrderByDescending(item => item.FechaVenta).ToListAsync();
     }
 
-    public Venta CrearVenta(int clienteId, int empleadoId, IEnumerable<(int ProductoCodigo, int Cantidad)> detalles)
+    public async Task<Venta> AgregarVentaAsync(int clienteId, int empleadoId, IEnumerable<(int ProductoCodigo, int Cantidad)> detalles)
     {
-        using var context = CrearContexto();
-        Venta venta = new() { Codigo = SiguienteCodigoVenta(context), ClienteId = clienteId, EmpleadoId = empleadoId, FechaVenta = DateTime.Now };
+        using var db = new WinformsDbContext();
+        Venta venta = new() { Codigo = await SiguienteCodigoVentaAsync(db), ClienteId = clienteId, EmpleadoId = empleadoId, FechaVenta = DateTime.Now };
         foreach ((int productoCodigo, int cantidad) in detalles)
         {
-            Producto producto = context.Productos.First(item => item.Codigo == productoCodigo);
+            Producto? producto = await db.Productos.FirstOrDefaultAsync(item => item.Codigo == productoCodigo);
+            if (producto is null) throw new InvalidOperationException($"No existe el producto {productoCodigo}.");
             venta.Detallesventa.Add(new Detallesventum { VentaCodigo = venta.Codigo, ProductoCodigo = producto.Codigo, Cantidad = cantidad, PrecioUnitario = producto.PrecioVenta, Impuesto = producto.Impuesto });
             producto.StockActual -= cantidad;
         }
-        context.Ventas.Add(venta);
-        context.SaveChanges();
+        db.Ventas.Add(venta);
+        await db.SaveChangesAsync();
         return venta;
     }
 
-    public bool EliminarVenta(int codigo)
+    public Task<Venta> CrearVentaAsync(int clienteId, int empleadoId, IEnumerable<(int ProductoCodigo, int Cantidad)> detalles) => AgregarVentaAsync(clienteId, empleadoId, detalles);
+
+    public async Task<bool> EliminarVentaAsync(int codigo)
     {
-        using var context = CrearContexto();
-        Venta? venta = context.Ventas.FirstOrDefault(item => item.Codigo == codigo);
+        using var db = new WinformsDbContext();
+        Venta? venta = await db.Ventas.FirstOrDefaultAsync(item => item.Codigo == codigo);
         if (venta is null) return false;
-        context.Ventas.Remove(venta);
-        context.SaveChanges();
+        db.Ventas.Remove(venta);
+        await db.SaveChangesAsync();
         return true;
     }
 
-    public int SiguienteCodigoUsuario(int rol)
+    public async Task<int> SiguienteCodigoUsuarioAsync(int rol)
     {
-        using var context = CrearContexto();
-        return (context.Usuarios.Where(item => item.Rol == rol).Select(item => (int?)item.Codigo).Max() ?? 0) + 1;
+        using var db = new WinformsDbContext();
+        return await SiguienteCodigoUsuarioAsync(db, rol);
     }
 
-    public int SiguienteCodigoProducto()
+    public async Task<int> SiguienteCodigoProductoAsync()
     {
-        using var context = CrearContexto();
-        return SiguienteCodigoProducto(context);
+        using var db = new WinformsDbContext();
+        return await SiguienteCodigoProductoAsync(db);
     }
 
-    public int SiguienteCodigoVenta()
+    public async Task<int> SiguienteCodigoVentaAsync()
     {
-        using var context = CrearContexto();
-        return SiguienteCodigoVenta(context);
+        using var db = new WinformsDbContext();
+        return await SiguienteCodigoVentaAsync(db);
     }
 
     private static IQueryable<Usuario> FiltrarUsuarios(IQueryable<Usuario> query, string criterio) => query.Where(item => item.Codigo.ToString().Contains(criterio) || item.Nombre.Contains(criterio) || item.Correo.Contains(criterio));
-    private static int SiguienteCodigoUsuario(WinformsDbContext context) => (context.Usuarios.Select(item => (int?)item.Codigo).Max() ?? 0) + 1;
-    private static int SiguienteCodigoProducto(WinformsDbContext context) => (context.Productos.Select(item => (int?)item.Codigo).Max() ?? 0) + 1;
-    private static int SiguienteCodigoVenta(WinformsDbContext context) => (context.Ventas.Select(item => (int?)item.Codigo).Max() ?? 0) + 1;
+    private static async Task<int> SiguienteCodigoUsuarioAsync(WinformsDbContext db) => (await db.Usuarios.Select(item => (int?)item.Codigo).MaxAsync() ?? 0) + 1;
+    private static async Task<int> SiguienteCodigoUsuarioAsync(WinformsDbContext db, int rol) => (await db.Usuarios.Where(item => item.Rol == rol).Select(item => (int?)item.Codigo).MaxAsync() ?? 0) + 1;
+    private static async Task<int> SiguienteCodigoProductoAsync(WinformsDbContext db) => (await db.Productos.Select(item => (int?)item.Codigo).MaxAsync() ?? 0) + 1;
+    private static async Task<int> SiguienteCodigoVentaAsync(WinformsDbContext db) => (await db.Ventas.Select(item => (int?)item.Codigo).MaxAsync() ?? 0) + 1;
 }

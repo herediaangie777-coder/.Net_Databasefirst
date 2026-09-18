@@ -56,9 +56,9 @@ public class UsuariosControl : UserControl
         }
 
         Panel acciones = new() { Dock = DockStyle.Top, Height = 48 };
-        Button agregar = ControlUi.Boton("Agregar usuario"); agregar.Click += (_, _) => Agregar();
-        Button eliminar = ControlUi.Boton("Eliminar seleccionado"); eliminar.Click += (_, _) => Eliminar();
-        Button refrescar = ControlUi.Boton("Refrescar tabla"); refrescar.Click += (_, _) => RefrescarDatos();
+        Button agregar = ControlUi.Boton("Agregar usuario"); agregar.Click += async (_, _) => await AgregarAsync();
+        Button eliminar = ControlUi.Boton("Eliminar seleccionado"); eliminar.Click += async (_, _) => await EliminarAsync();
+        Button refrescar = ControlUi.Boton("Refrescar tabla"); refrescar.Click += async (_, _) => await RefrescarDatosAsync();
         acciones.Controls.Add(agregar); acciones.Controls.Add(eliminar); acciones.Controls.Add(refrescar);
         Panel busqueda = ControlUi.Busqueda(txtBuscar, (_, _) => RefrescarDatos(), (_, _) => { txtBuscar.Clear(); RefrescarDatos(); });
 
@@ -67,11 +67,16 @@ public class UsuariosControl : UserControl
         RefrescarDatos();
     }
 
-    public virtual void RefrescarDatos()
+    public virtual async void RefrescarDatos()
+    {
+        await RefrescarDatosAsync();
+    }
+
+    private async Task RefrescarDatosAsync()
     {
         try
         {
-            grid.DataSource = AppState.ObtenerUsuarios(rol == 0 ? null : rol, txtBuscar.Text);
+            grid.DataSource = await AppState.ObtenerUsuariosAsync(rol == 0 ? null : rol, txtBuscar.Text);
         }
         catch (Exception exception)
         {
@@ -79,7 +84,7 @@ public class UsuariosControl : UserControl
         }
     }
 
-    private void Agregar()
+    private async Task AgregarAsync()
     {
         if (string.IsNullOrWhiteSpace(nombre.Text) || string.IsNullOrWhiteSpace(correo.Text) || (mostrarClave && string.IsNullOrWhiteSpace(clave.Text)))
         {
@@ -88,17 +93,17 @@ public class UsuariosControl : UserControl
         }
         try
         {
-            AppState.AgregarUsuario(new Usuario { Codigo = 0, Nombre = nombre.Text.Trim(), Correo = correo.Text.Trim(), Clave = mostrarClave ? clave.Text : string.Empty, Activo = activo.Checked, Rol = rol, Direccion = direccion.Text.Trim() });
+            await AppState.AgregarUsuarioAsync(new Usuario { Codigo = 0, Nombre = nombre.Text.Trim(), Correo = correo.Text.Trim(), Clave = mostrarClave ? clave.Text : string.Empty, Activo = activo.Checked, Rol = rol, Direccion = direccion.Text.Trim() });
             Limpiar();
-            RefrescarDatos();
+            await RefrescarDatosAsync();
         }
         catch (Exception exception) { MostrarError(exception); }
     }
 
-    private void Eliminar()
+    private async Task EliminarAsync()
     {
         if (grid.CurrentRow?.DataBoundItem is not Usuario usuario) return;
-        try { AppState.EliminarUsuario(usuario.Id); RefrescarDatos(); }
+        try { await AppState.EliminarUsuarioAsync(usuario.Id); await RefrescarDatosAsync(); }
         catch (Exception exception) { MostrarError(exception); }
     }
 

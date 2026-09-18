@@ -20,7 +20,6 @@ public sealed class VentasControl : UserControl
     public VentasControl(AppState appState)
     {
         this.appState = appState ?? throw new ArgumentNullException(nameof(appState));
-        Dock = DockStyle.Fill;
         AutoScroll = true;
         BackColor = Color.White;
         Padding = new Padding(10);
@@ -31,7 +30,6 @@ public sealed class VentasControl : UserControl
 
         ConfigurarGrillaVentas();
         ConfigurarGrillaCarrito();
-        ConfigurarCombos();
 
         TableLayoutPanel contenido = new()
         {
@@ -51,13 +49,18 @@ public sealed class VentasControl : UserControl
         RefrescarDatos();
     }
 
-    public void RefrescarDatos()
+    public async void RefrescarDatos()
+    {
+        await RefrescarDatosAsync();
+    }
+
+    private async Task RefrescarDatosAsync()
     {
         try
         {
-            dgvVentas.DataSource = appState.ObtenerVentas(txtBuscar.Text);
-            codigo.Text = $"VEN-{appState.SiguienteCodigoVenta():00000}";
-            ConfigurarCombos();
+            dgvVentas.DataSource = await appState.ObtenerVentasAsync(txtBuscar.Text);
+            codigo.Text = $"VEN-{await appState.SiguienteCodigoVentaAsync():00000}";
+            await ConfigurarCombosAsync();
         }
         catch (Exception exception) { MostrarError(exception); }
     }
@@ -138,7 +141,7 @@ public sealed class VentasControl : UserControl
         Button quitar = ControlUi.Boton("Quitar producto");
         quitar.Click += (_, _) => QuitarDetalle();
         Button crear = ControlUi.Boton("Crear venta");
-        crear.Click += (_, _) => CrearVenta();
+        crear.Click += async (_, _) => await CrearVentaAsync();
         botones.Controls.Add(quitar);
         botones.Controls.Add(crear);
         fila.Controls.Add(botones, 1, 0);
@@ -153,7 +156,7 @@ public sealed class VentasControl : UserControl
         historial.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
         historial.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         historial.Controls.Add(CrearTitulo("Ventas Registradas", 10, 10), 0, 0);
-        historial.Controls.Add(ControlUi.Busqueda(txtBuscar, (_, _) => RefrescarDatos(), (_, _) => { txtBuscar.Clear(); RefrescarDatos(); }), 0, 1);
+        historial.Controls.Add(ControlUi.Busqueda(txtBuscar, async (_, _) => await RefrescarDatosAsync(), async (_, _) => { txtBuscar.Clear(); await RefrescarDatosAsync(); }), 0, 1);
         historial.Controls.Add(dgvVentas, 0, 2);
         return historial;
     }
@@ -183,17 +186,17 @@ public sealed class VentasControl : UserControl
         dgvCarrito.DataSource = detallesPendientes;
     }
 
-    private void ConfigurarCombos()
+    private async Task ConfigurarCombosAsync()
     {
         try
         {
-            cliente.DataSource = appState.ObtenerUsuarios(AppState.RolCliente);
+            cliente.DataSource = await appState.ObtenerUsuariosAsync(AppState.RolCliente);
             cliente.DisplayMember = nameof(Usuario.Nombre);
             cliente.ValueMember = nameof(Usuario.Id);
-            empleado.DataSource = appState.ObtenerUsuarios(AppState.RolEmpleado);
+            empleado.DataSource = await appState.ObtenerUsuariosAsync(AppState.RolEmpleado);
             empleado.DisplayMember = nameof(Usuario.Nombre);
             empleado.ValueMember = nameof(Usuario.Id);
-            producto.DataSource = appState.ObtenerProductos();
+            producto.DataSource = await appState.ObtenerProductosAsync();
             producto.DisplayMember = nameof(Producto.Nombre);
             producto.ValueMember = nameof(Producto.Codigo);
         }
@@ -216,7 +219,7 @@ public sealed class VentasControl : UserControl
         ActualizarTotal();
     }
 
-    private void CrearVenta()
+    private async Task CrearVentaAsync()
     {
         if (cliente.SelectedValue is not int clienteId || empleado.SelectedValue is not int empleadoId || detallesPendientes.Count == 0)
         {
@@ -225,10 +228,10 @@ public sealed class VentasControl : UserControl
         }
         try
         {
-            appState.CrearVenta(clienteId, empleadoId, detallesPendientes.Select(item => (item.ProductoCodigo, item.Cantidad)));
+            await appState.AgregarVentaAsync(clienteId, empleadoId, detallesPendientes.Select(item => (item.ProductoCodigo, item.Cantidad)));
             detallesPendientes.Clear();
             ActualizarTotal();
-            RefrescarDatos();
+            await RefrescarDatosAsync();
         }
         catch (Exception exception) { MostrarError(exception); }
     }
