@@ -1,0 +1,46 @@
+[
+  {
+    "Codigo": 1,
+    "Nombre": "Laptop HP",
+    "Categoria": "Electronica",
+    "Descripcion": "Laptop de 15 pulgadas",
+    "PrecioVenta": 2500,
+    "StockActual": 10,
+    "StockMinimo": 2,
+    "Activo": true,
+    "Impuesto": 0.19
+  },
+  {
+    "Codigo": 2,
+    "Nombre": "Mouse inalambrico",
+    "Categoria": "Accesorios",
+    "Descripcion": "Mouse ergonomico",
+    "PrecioVenta": 45.5,
+    "StockActual": 25,
+    "StockMinimo": 5,
+    "Activo": true,
+    "Impuesto": 0.19
+  },
+  {
+    "Codigo": 3,
+    "Nombre": "Teclado mecanico",
+    "Categoria": "Accesorios",
+    "Descripcion": "Teclado con iluminacion RGB",
+    "PrecioVenta": 120,
+    "StockActual": 15,
+    "StockMinimo": 3,
+    "Activo": true,
+    "Impuesto": 0.19
+  },
+  {
+    "Codigo": 4,
+    "Nombre": "\u00F1 gbl\u00F1tr",
+    "Categoria": "tgvfgtrft",
+    "Descripcion": "tgbtr",
+    "PrecioVenta": 345453,
+    "StockActual": 34,
+    "StockMinimo": 343,
+    "Activo": true,
+    "Impuesto": 0.19
+  }
+]

@@ -1,0 +1,30 @@
+[
+  {
+    "Codigo": 1,
+    "Nombre": "Carlos Perez",
+    "Correo": "carlos@tienda.com",
+    "Clave": "demo",
+    "Activo": true
+  },
+  {
+    "Codigo": 2,
+    "Nombre": "Rosa Diaz",
+    "Correo": "rosa@tienda.com",
+    "Clave": "demo",
+    "Activo": true
+  },
+  {
+    "Codigo": 3,
+    "Nombre": "Diego Silva",
+    "Correo": "diego@tienda.com",
+    "Clave": "demo",
+    "Activo": true
+  },
+  {
+    "Codigo": 4,
+    "Nombre": "tgbfvrt",
+    "Correo": "bgfvfbvs",
+    "Clave": "trfvtrg",
+    "Activo": true
+  }
+]

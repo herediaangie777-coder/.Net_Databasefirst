@@ -1,0 +1,23 @@
+[
+  {
+    "Codigo": 1,
+    "Nombre": "Ana Torres",
+    "Correo": "ana@tienda.com",
+    "Clave": "demo",
+    "Activo": true
+  },
+  {
+    "Codigo": 2,
+    "Nombre": "Luis Mendoza",
+    "Correo": "luis@tienda.com",
+    "Clave": "demo",
+    "Activo": true
+  },
+  {
+    "Codigo": 3,
+    "Nombre": "Sofia Rojas",
+    "Correo": "sofia@tienda.com",
+    "Clave": "demo",
+    "Activo": true
+  }
+]

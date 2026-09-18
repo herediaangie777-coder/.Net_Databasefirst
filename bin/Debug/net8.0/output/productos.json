@@ -1,0 +1,68 @@
+[
+  {
+    "Codigo": 1,
+    "Nombre": "Laptop HP",
+    "Categoria": "Electronica",
+    "Descripcion": "Laptop HP 15.6 pulgadas, 8GB RAM",
+    "PrecioVenta": 2400,
+    "StockActual": 9,
+    "StockMinimo": 1,
+    "Activo": true,
+    "Impuesto": 0.19
+  },
+  {
+    "Codigo": 2,
+    "Nombre": "Mouse Inalambrico",
+    "Categoria": "Accesorios",
+    "Descripcion": "Mouse inalambrico ergonomico",
+    "PrecioVenta": 45.5,
+    "StockActual": 24,
+    "StockMinimo": 5,
+    "Activo": true,
+    "Impuesto": 0.19
+  },
+  {
+    "Codigo": 3,
+    "Nombre": "Teclado Mecanico",
+    "Categoria": "Accesorios",
+    "Descripcion": "Teclado mecanico RGB",
+    "PrecioVenta": 120,
+    "StockActual": 15,
+    "StockMinimo": 3,
+    "Activo": true,
+    "Impuesto": 0.19
+  },
+  {
+    "Codigo": 4,
+    "Nombre": "Laptop HP",
+    "Categoria": "Electronica",
+    "Descripcion": "Laptop HP 15.6 pulgadas, 8GB RAM",
+    "PrecioVenta": 2500,
+    "StockActual": 9,
+    "StockMinimo": 2,
+    "Activo": true,
+    "Impuesto": 0.19
+  },
+  {
+    "Codigo": 5,
+    "Nombre": "Mouse Inalambrico",
+    "Categoria": "Accesorios",
+    "Descripcion": "Mouse inalambrico ergonomico",
+    "PrecioVenta": 45.5,
+    "StockActual": 24,
+    "StockMinimo": 5,
+    "Activo": true,
+    "Impuesto": 0.19
+  },
+  {
+    "Codigo": 6,
+    "Nombre": "Teclado Mecanico",
+    "Categoria": "Accesorios",
+    "Descripcion": "Teclado mecanico RGB",
+    "PrecioVenta": 120,
+    "StockActual": 15,
+    "StockMinimo": 3,
+    "Activo": true,
+    "Impuesto": 0.19
+  }
+]
