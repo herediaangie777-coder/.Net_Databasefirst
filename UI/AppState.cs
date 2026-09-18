@@ -1,124 +1,181 @@
-using System.ComponentModel;
-using ProyectoConsolaObjetos1.Models.Academic;
-using ProyectoConsolaObjetos1.Models.Base;
-using ProyectoConsolaObjetos1.Models.Details;
-using ProyectoConsolaObjetos1.Models.Users;
-using ProyectoConsolaObjetos1.Services;
+using Microsoft.EntityFrameworkCore;
+using ProyectoConsolaObjetos1.Data;
+using ProyectoConsolaObjetos1.Models;
 
 namespace ProyectoConsolaObjetos1.UI;
 
 public sealed class AppState
 {
-    public BindingList<Usuario> Usuarios { get; } = new();
-    public BindingList<Cliente> Clientes { get; } = new();
-    public BindingList<Empleado> Empleados { get; } = new();
-    public BindingList<Producto> Productos { get; } = new();
-    public BindingList<Venta> Ventas { get; } = new();
-    public BindingList<DetalleVenta> DetallesVenta { get; } = new();
+    public const int RolCliente = 1;
+    public const int RolEmpleado = 2;
 
-    public AppState()
+    private readonly string connectionString;
+
+    public AppState(string? connectionString = null)
     {
-        CargarDatos();
+        this.connectionString = connectionString
+            ?? Environment.GetEnvironmentVariable("WINFORMS_DB_CONNECTION")
+            ?? "Server=localhost;Port=3306;Database=winforms_db;User ID=root;Password=;";
     }
 
-    public void CargarDatos()
+    public WinformsDbContext CrearContexto()
     {
-        CargarOAgregarDemo(Usuarios, "usuarios.json", CrearUsuariosDemo);
-        CargarOAgregarDemo(Clientes, "clientes.json", CrearClientesDemo);
-        CargarOAgregarDemo(Empleados, "empleados.json", CrearEmpleadosDemo);
-        CargarOAgregarDemo(Productos, "productos.json", CrearProductosDemo);
-        CargarOAgregarDemo(Ventas, "ventas.json", CrearVentasDemo);
-        ActualizarDetalles();
+        DbContextOptions<WinformsDbContext> options = new DbContextOptionsBuilder<WinformsDbContext>()
+            .UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
+            .Options;
+        return new WinformsDbContext(options);
     }
 
-    public void GuardarTodo()
+    public List<Usuario> ObtenerUsuarios(int? rol = null, string? filtro = null)
     {
-        new JsonRepository<Usuario>("usuarios.json").Save(Usuarios);
-        new JsonRepository<Cliente>("clientes.json").Save(Clientes);
-        new JsonRepository<Empleado>("empleados.json").Save(Empleados);
-        new JsonRepository<Producto>("productos.json").Save(Productos);
-        new JsonRepository<Venta>("ventas.json").Save(Ventas);
+        using var context = CrearContexto();
+        IQueryable<Usuario> query = context.Usuarios.AsNoTracking();
+        if (rol.HasValue) query = query.Where(item => item.Rol == rol.Value);
+        if (!string.IsNullOrWhiteSpace(filtro)) query = FiltrarUsuarios(query, filtro.Trim());
+        return query.OrderBy(item => item.Nombre).ToList();
     }
 
-    public void CargarOAgregarDemo<T>(BindingList<T> lista, string archivo, Func<List<T>> crearDemo)
+    public Usuario AgregarUsuario(Usuario usuario)
     {
-        List<T> datos = new JsonRepository<T>(archivo).Load();
-        lista.Clear();
-        IEnumerable<T> elementos = datos.Count > 0 ? datos : crearDemo();
-        foreach (T elemento in elementos)
+        using var context = CrearContexto();
+        usuario.Id = 0;
+        usuario.Codigo = SiguienteCodigoUsuario(context);
+        context.Usuarios.Add(usuario);
+        context.SaveChanges();
+        return usuario;
+    }
+
+    public bool ActualizarUsuario(Usuario usuario)
+    {
+        using var context = CrearContexto();
+        Usuario? existente = context.Usuarios.FirstOrDefault(item => item.Id == usuario.Id);
+        if (existente is null) return false;
+        existente.Codigo = usuario.Codigo;
+        existente.Nombre = usuario.Nombre;
+        existente.Correo = usuario.Correo;
+        existente.Clave = usuario.Clave;
+        existente.Activo = usuario.Activo;
+        existente.Rol = usuario.Rol;
+        existente.Direccion = usuario.Direccion;
+        context.SaveChanges();
+        return true;
+    }
+
+    public bool EliminarUsuario(int id)
+    {
+        using var context = CrearContexto();
+        Usuario? usuario = context.Usuarios.FirstOrDefault(item => item.Id == id);
+        if (usuario is null) return false;
+        context.Usuarios.Remove(usuario);
+        context.SaveChanges();
+        return true;
+    }
+
+    public List<Producto> ObtenerProductos(string? filtro = null)
+    {
+        using var context = CrearContexto();
+        IQueryable<Producto> query = context.Productos.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(filtro))
         {
-            lista.Add(elemento);
+            string criterio = filtro.Trim();
+            query = query.Where(item => item.Codigo.ToString().Contains(criterio) || item.Nombre.Contains(criterio) || item.Categoria.Contains(criterio));
         }
+        return query.OrderBy(item => item.Nombre).ToList();
     }
 
-    public void ActualizarDetalles()
+    public Producto AgregarProducto(Producto producto)
     {
-        DetallesVenta.Clear();
-        foreach (Venta venta in Ventas)
+        using var context = CrearContexto();
+        producto.Codigo = SiguienteCodigoProducto(context);
+        context.Productos.Add(producto);
+        context.SaveChanges();
+        return producto;
+    }
+
+    public bool ActualizarProducto(Producto producto)
+    {
+        using var context = CrearContexto();
+        Producto? existente = context.Productos.FirstOrDefault(item => item.Codigo == producto.Codigo);
+        if (existente is null) return false;
+        existente.Nombre = producto.Nombre;
+        existente.Categoria = producto.Categoria;
+        existente.Descripcion = producto.Descripcion;
+        existente.PrecioVenta = producto.PrecioVenta;
+        existente.StockActual = producto.StockActual;
+        existente.StockMinimo = producto.StockMinimo;
+        existente.Activo = producto.Activo;
+        existente.Impuesto = producto.Impuesto;
+        context.SaveChanges();
+        return true;
+    }
+
+    public bool EliminarProducto(int codigo)
+    {
+        using var context = CrearContexto();
+        Producto? producto = context.Productos.FirstOrDefault(item => item.Codigo == codigo);
+        if (producto is null) return false;
+        context.Productos.Remove(producto);
+        context.SaveChanges();
+        return true;
+    }
+
+    public List<Venta> ObtenerVentas(string? filtro = null)
+    {
+        using var context = CrearContexto();
+        IQueryable<Venta> query = context.Ventas.AsNoTracking().Include(item => item.Cliente).Include(item => item.Empleado).Include(item => item.Detallesventa).ThenInclude(item => item.ProductoCodigoNavigation);
+        if (!string.IsNullOrWhiteSpace(filtro))
         {
-            foreach (DetalleVenta detalle in venta.Detalles)
-            {
-                DetallesVenta.Add(detalle);
-            }
+            string criterio = filtro.Trim();
+            query = query.Where(item => item.Codigo.ToString().Contains(criterio) || item.Cliente.Nombre.Contains(criterio) || item.Empleado.Nombre.Contains(criterio));
         }
+        return query.OrderByDescending(item => item.FechaVenta).ToList();
     }
 
-    private static List<Usuario> CrearUsuariosDemo() => new()
+    public Venta CrearVenta(int clienteId, int empleadoId, IEnumerable<(int ProductoCodigo, int Cantidad)> detalles)
     {
-        CrearUsuario(1, "Ana Torres", "ana@tienda.com"),
-        CrearUsuario(2, "Luis Mendoza", "luis@tienda.com"),
-        CrearUsuario(3, "Sofia Rojas", "sofia@tienda.com")
-    };
-
-    private static List<Cliente> CrearClientesDemo() => new()
-    {
-        new Cliente { Codigo = 1, Nombre = "Maria Lopez", Correo = "maria@email.com", Direccion = "Av. Principal 123", Activo = true },
-        new Cliente { Codigo = 2, Nombre = "Juan Garcia", Correo = "juan@email.com", Direccion = "Calle Secundaria 456", Activo = true },
-        new Cliente { Codigo = 3, Nombre = "Elena Castro", Correo = "elena@email.com", Direccion = "Jiron Lima 789", Activo = true }
-    };
-
-    private static List<Empleado> CrearEmpleadosDemo() => new()
-    {
-        CrearEmpleado(1, "Carlos Perez", "carlos@tienda.com"),
-        CrearEmpleado(2, "Rosa Diaz", "rosa@tienda.com"),
-        CrearEmpleado(3, "Diego Silva", "diego@tienda.com")
-    };
-
-    private static List<Producto> CrearProductosDemo() => new()
-    {
-        new Producto { Codigo = 1, Nombre = "Laptop HP", Categoria = "Electronica", Descripcion = "Laptop de 15 pulgadas", PrecioVenta = 2500f, StockActual = 10, StockMinimo = 2, Impuesto = 0.19f, Activo = true },
-        new Producto { Codigo = 2, Nombre = "Mouse inalambrico", Categoria = "Accesorios", Descripcion = "Mouse ergonomico", PrecioVenta = 45.50f, StockActual = 25, StockMinimo = 5, Impuesto = 0.19f, Activo = true },
-        new Producto { Codigo = 3, Nombre = "Teclado mecanico", Categoria = "Accesorios", Descripcion = "Teclado con iluminacion RGB", PrecioVenta = 120f, StockActual = 15, StockMinimo = 3, Impuesto = 0.19f, Activo = true }
-    };
-
-    private static List<Venta> CrearVentasDemo()
-    {
-        List<Cliente> clientes = CrearClientesDemo();
-        List<Empleado> empleados = CrearEmpleadosDemo();
-        List<Producto> productos = CrearProductosDemo();
-        List<Venta> ventas = new();
-        for (int indice = 0; indice < 3; indice++)
+        using var context = CrearContexto();
+        Venta venta = new() { Codigo = SiguienteCodigoVenta(context), ClienteId = clienteId, EmpleadoId = empleadoId, FechaVenta = DateTime.Now };
+        foreach ((int productoCodigo, int cantidad) in detalles)
         {
-            Venta venta = new()
-            {
-                Codigo = indice + 1,
-                Cliente = clientes[indice],
-                Empleado = empleados[indice],
-                FechaVenta = DateTime.Today.AddDays(-indice)
-            };
-            venta.AgregarProducto(productos[indice]);
-            ventas.Add(venta);
+            Producto producto = context.Productos.First(item => item.Codigo == productoCodigo);
+            venta.Detallesventa.Add(new Detallesventum { VentaCodigo = venta.Codigo, ProductoCodigo = producto.Codigo, Cantidad = cantidad, PrecioUnitario = producto.PrecioVenta, Impuesto = producto.Impuesto });
+            producto.StockActual -= cantidad;
         }
-        return ventas;
+        context.Ventas.Add(venta);
+        context.SaveChanges();
+        return venta;
     }
 
-    private static Usuario CrearUsuario(int codigo, string nombre, string correo) => new()
+    public bool EliminarVenta(int codigo)
     {
-        Codigo = codigo, Nombre = nombre, Correo = correo, Clave = "demo", Activo = true
-    };
+        using var context = CrearContexto();
+        Venta? venta = context.Ventas.FirstOrDefault(item => item.Codigo == codigo);
+        if (venta is null) return false;
+        context.Ventas.Remove(venta);
+        context.SaveChanges();
+        return true;
+    }
 
-    private static Empleado CrearEmpleado(int codigo, string nombre, string correo) => new()
+    public int SiguienteCodigoUsuario(int rol)
     {
-        Codigo = codigo, Nombre = nombre, Correo = correo, Clave = "demo", Activo = true
-    };
+        using var context = CrearContexto();
+        return (context.Usuarios.Where(item => item.Rol == rol).Select(item => (int?)item.Codigo).Max() ?? 0) + 1;
+    }
+
+    public int SiguienteCodigoProducto()
+    {
+        using var context = CrearContexto();
+        return SiguienteCodigoProducto(context);
+    }
+
+    public int SiguienteCodigoVenta()
+    {
+        using var context = CrearContexto();
+        return SiguienteCodigoVenta(context);
+    }
+
+    private static IQueryable<Usuario> FiltrarUsuarios(IQueryable<Usuario> query, string criterio) => query.Where(item => item.Codigo.ToString().Contains(criterio) || item.Nombre.Contains(criterio) || item.Correo.Contains(criterio));
+    private static int SiguienteCodigoUsuario(WinformsDbContext context) => (context.Usuarios.Select(item => (int?)item.Codigo).Max() ?? 0) + 1;
+    private static int SiguienteCodigoProducto(WinformsDbContext context) => (context.Productos.Select(item => (int?)item.Codigo).Max() ?? 0) + 1;
+    private static int SiguienteCodigoVenta(WinformsDbContext context) => (context.Ventas.Select(item => (int?)item.Codigo).Max() ?? 0) + 1;
 }

@@ -1,119 +1,107 @@
-using System.Drawing;
-using System.Windows.Forms;
-using ProyectoConsolaObjetos1.Models.Base;
-using ProyectoConsolaObjetos1.Services;
+using ProyectoConsolaObjetos1.Models;
 
 namespace ProyectoConsolaObjetos1.UI.Controls;
 
-public sealed class UsuariosControl : UserControl
+public class UsuariosControl : UserControl
 {
-    private readonly AppState appState;
+    protected readonly AppState AppState;
+    private readonly int rol;
+    private readonly string titulo;
+    private readonly bool mostrarClave;
     private readonly DataGridView grid = new();
-    private readonly TextBox nombre = new();
-    private readonly TextBox correo = new();
-    private readonly TextBox clave = new();
-    private readonly CheckBox activo = new();
+    private readonly TextBox txtBuscar = new();
+    private readonly TextBox codigo = ControlUi.Campo("Código");
+    private readonly TextBox nombre = ControlUi.Campo("Nombre completo");
+    private readonly TextBox correo = ControlUi.Campo("correo@ejemplo.com");
+    private readonly TextBox clave = ControlUi.Campo("Clave");
+    private readonly TextBox direccion = ControlUi.Campo("Dirección");
+    private readonly CheckBox activo = new() { Text = "Activo", Checked = true, AutoSize = true, Anchor = AnchorStyles.Left };
 
-    public UsuariosControl(AppState appState)
+    public UsuariosControl(AppState appState, int rol = 0, string titulo = "Usuarios", bool mostrarClave = true)
     {
-        this.appState = appState ?? throw new ArgumentNullException(nameof(appState));
+        AppState = appState ?? throw new ArgumentNullException(nameof(appState));
+        this.rol = rol;
+        this.titulo = titulo;
+        this.mostrarClave = mostrarClave;
         Dock = DockStyle.Fill;
-        Padding = new Padding(12);
-        ConstruirInterfaz();
-        grid.DataSource = this.appState.Usuarios;
-    }
-
-    private void ConstruirInterfaz()
-    {
-        TableLayoutPanel layout = new()
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 3
-        };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
-
-        FlowLayoutPanel editor = new() { Dock = DockStyle.Fill, WrapContents = false, Padding = new Padding(0, 8, 0, 0) };
-        nombre.Width = 180;
-        correo.Width = 210;
-        clave.Width = 160;
-        activo.Text = "Activo";
-        activo.Checked = true;
+        BackColor = Color.White;
         clave.PasswordChar = '*';
-        editor.Controls.AddRange(new Control[]
+        codigo.ReadOnly = true;
+        codigo.Enabled = false;
+        codigo.BackColor = SystemColors.Control;
+        codigo.Text = "Automático";
+
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "ID", DataPropertyName = nameof(Usuario.Id) });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Código", DataPropertyName = nameof(Usuario.Codigo) });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Nombre", DataPropertyName = nameof(Usuario.Nombre) });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Correo", DataPropertyName = nameof(Usuario.Correo) });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Rol", DataPropertyName = nameof(Usuario.Rol) });
+        grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Activo", DataPropertyName = nameof(Usuario.Activo) });
+        ControlUi.ConfigurarGrid(grid);
+
+        TableLayoutPanel formulario = ControlUi.Formulario(4);
+        formulario.Controls.Add(ControlUi.Etiqueta("Código"), 0, 0); formulario.Controls.Add(codigo, 1, 0);
+        formulario.Controls.Add(ControlUi.Etiqueta("Nombre"), 2, 0); formulario.Controls.Add(nombre, 3, 0);
+        formulario.Controls.Add(ControlUi.Etiqueta("Correo"), 0, 1); formulario.Controls.Add(correo, 1, 1);
+        if (mostrarClave)
         {
-            new Label { Text = "Nombre", AutoSize = true, Margin = new Padding(0, 8, 5, 0) }, nombre,
-            new Label { Text = "Correo", AutoSize = true, Margin = new Padding(12, 8, 5, 0) }, correo,
-            new Label { Text = "Clave", AutoSize = true, Margin = new Padding(12, 8, 5, 0) }, clave,
-            activo
-        });
+            formulario.Controls.Add(ControlUi.Etiqueta("Clave"), 2, 1); formulario.Controls.Add(clave, 3, 1);
+            formulario.Controls.Add(ControlUi.Etiqueta("Dirección"), 0, 2); formulario.Controls.Add(direccion, 1, 2);
+            formulario.Controls.Add(activo, 3, 2);
+        }
+        else
+        {
+            formulario.Controls.Add(ControlUi.Etiqueta("Dirección"), 2, 1); formulario.Controls.Add(direccion, 3, 1);
+            formulario.Controls.Add(activo, 1, 2);
+        }
 
-        grid.Dock = DockStyle.Fill;
-        grid.AutoGenerateColumns = true;
-        grid.AllowUserToAddRows = false;
-        grid.ReadOnly = true;
-        grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        Panel acciones = new() { Dock = DockStyle.Top, Height = 48 };
+        Button agregar = ControlUi.Boton("Agregar usuario"); agregar.Click += (_, _) => Agregar();
+        Button eliminar = ControlUi.Boton("Eliminar seleccionado"); eliminar.Click += (_, _) => Eliminar();
+        Button refrescar = ControlUi.Boton("Refrescar tabla"); refrescar.Click += (_, _) => RefrescarDatos();
+        acciones.Controls.Add(agregar); acciones.Controls.Add(eliminar); acciones.Controls.Add(refrescar);
+        Panel busqueda = ControlUi.Busqueda(txtBuscar, (_, _) => RefrescarDatos(), (_, _) => { txtBuscar.Clear(); RefrescarDatos(); });
 
-        FlowLayoutPanel actions = new() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
-        Button guardar = new() { Text = "Guardar en JSON", AutoSize = true };
-        Button agregar = new() { Text = "Agregar usuario", AutoSize = true };
-        guardar.Click += (_, _) => Guardar();
-        agregar.Click += (_, _) => AgregarUsuario();
-        actions.Controls.AddRange(new Control[] { guardar, agregar });
-
-        layout.Controls.Add(editor, 0, 0);
-        layout.Controls.Add(grid, 0, 1);
-        layout.Controls.Add(actions, 0, 2);
-        Controls.Add(layout);
+        Controls.Add(grid); Controls.Add(busqueda); Controls.Add(acciones); Controls.Add(formulario);
+        Controls.Add(new Label { Text = titulo, Dock = DockStyle.Top, Height = 38, Font = new Font("Segoe UI", 20, FontStyle.Bold), ForeColor = ControlUi.Texto });
+        RefrescarDatos();
     }
 
-    public void RefrescarDatos()
+    public virtual void RefrescarDatos()
     {
-        grid.DataSource = null;
-        grid.DataSource = appState.Usuarios;
+        try
+        {
+            grid.DataSource = AppState.ObtenerUsuarios(rol == 0 ? null : rol, txtBuscar.Text);
+        }
+        catch (Exception exception)
+        {
+            MostrarError(exception);
+        }
     }
 
-    private void AgregarUsuario()
+    private void Agregar()
     {
-        if (string.IsNullOrWhiteSpace(nombre.Text) || string.IsNullOrWhiteSpace(correo.Text))
+        if (string.IsNullOrWhiteSpace(nombre.Text) || string.IsNullOrWhiteSpace(correo.Text) || (mostrarClave && string.IsNullOrWhiteSpace(clave.Text)))
         {
-            MessageBox.Show("El nombre y el correo son obligatorios.", "Datos incompletos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(mostrarClave ? "Nombre, correo y clave son obligatorios." : "Nombre y correo son obligatorios.", "Datos incompletos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
-
         try
         {
-            Usuario usuario = new()
-            {
-                Codigo = appState.Usuarios.Count == 0 ? 1 : appState.Usuarios.Max(item => item.Codigo) + 1,
-                Nombre = nombre.Text.Trim(),
-                Correo = correo.Text.Trim(),
-                Clave = clave.Text,
-                Activo = activo.Checked
-            };
-            appState.Usuarios.Add(usuario);
-            nombre.Clear();
-            correo.Clear();
-            clave.Clear();
+            AppState.AgregarUsuario(new Usuario { Codigo = 0, Nombre = nombre.Text.Trim(), Correo = correo.Text.Trim(), Clave = mostrarClave ? clave.Text : string.Empty, Activo = activo.Checked, Rol = rol, Direccion = direccion.Text.Trim() });
+            Limpiar();
+            RefrescarDatos();
         }
-        catch (ArgumentException exception)
-        {
-            MessageBox.Show(exception.Message, "Datos inválidos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
+        catch (Exception exception) { MostrarError(exception); }
     }
 
-    private void Guardar()
+    private void Eliminar()
     {
-        try
-        {
-            new JsonRepository<Usuario>("usuarios.json").Save(appState.Usuarios);
-            MessageBox.Show("Usuarios guardados correctamente.", "Guardado", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-        catch (IOException exception)
-        {
-            MessageBox.Show($"No se pudieron guardar los usuarios: {exception.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+        if (grid.CurrentRow?.DataBoundItem is not Usuario usuario) return;
+        try { AppState.EliminarUsuario(usuario.Id); RefrescarDatos(); }
+        catch (Exception exception) { MostrarError(exception); }
     }
+
+    private void Limpiar() { codigo.Text = "Automático"; nombre.Clear(); correo.Clear(); clave.Clear(); direccion.Clear(); activo.Checked = true; }
+    private void MostrarError(Exception exception) => MessageBox.Show(exception.Message, "Error de base de datos", MessageBoxButtons.OK, MessageBoxIcon.Error);
 }

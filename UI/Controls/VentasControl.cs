@@ -1,174 +1,254 @@
-using ProyectoConsolaObjetos1.Models.Academic;
-using ProyectoConsolaObjetos1.Models.Details;
-using ProyectoConsolaObjetos1.Models.Users;
-using ProyectoConsolaObjetos1.UI;
-
 using System.ComponentModel;
+using ProyectoConsolaObjetos1.Models;
 
 namespace ProyectoConsolaObjetos1.UI.Controls;
 
 public sealed class VentasControl : UserControl
+{
+    private readonly AppState appState;
+    private readonly DataGridView dgvVentas = new();
+    private readonly DataGridView dgvCarrito = new();
+    private readonly TextBox txtBuscar = new();
+    private readonly TextBox codigo = ControlUi.Campo("VEN-00001");
+    private readonly ComboBox cliente = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+    private readonly ComboBox empleado = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+    private readonly ComboBox producto = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+    private readonly NumericUpDown cantidad = new() { Minimum = 1, Maximum = 100000, Value = 1, Dock = DockStyle.Fill };
+    private readonly BindingList<DetalleVentaVista> detallesPendientes = new();
+    private readonly Label totalAcumulado = new() { Text = "Total Acumulado: $0.00", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = ControlUi.Texto, Font = new Font("Segoe UI", 11, FontStyle.Bold) };
+
+    public VentasControl(AppState appState)
     {
-        private readonly AppState appState;
-        private readonly DataGridView grid = new();
-        private readonly DataGridView detallesGrid = new();
-        private readonly BindingSource datos = new();
-        private readonly BindingList<DetalleVenta> detallesPendientes = new();
-        private readonly TextBox txtBuscar = new();
-        private readonly TextBox codigo = ControlUi.Campo("VEN-37362");
-        private readonly ComboBox cliente = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill, Margin = new Padding(0, 2, 0, 7) };
-        private readonly ComboBox empleado = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill, Margin = new Padding(0, 2, 0, 7) };
-        private readonly ComboBox producto = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 230, Margin = new Padding(0, 2, 8, 7) };
-        private readonly NumericUpDown cantidad = new() { Minimum = 1, Maximum = 100000, Value = 1, Width = 82, Margin = new Padding(0, 2, 8, 7) };
+        this.appState = appState ?? throw new ArgumentNullException(nameof(appState));
+        Dock = DockStyle.Fill;
+        AutoScroll = true;
+        BackColor = Color.White;
+        Padding = new Padding(10);
 
-        public VentasControl(AppState appState)
+        codigo.ReadOnly = true;
+        codigo.Enabled = false;
+        codigo.BackColor = SystemColors.Control;
+
+        ConfigurarGrillaVentas();
+        ConfigurarGrillaCarrito();
+        ConfigurarCombos();
+
+        TableLayoutPanel contenido = new()
         {
-            this.appState = appState ?? throw new ArgumentNullException(nameof(appState));
-            Dock = DockStyle.Fill;
-            BackColor = Color.White;
-            codigo.ReadOnly = true;
-            codigo.Enabled = false;
-            codigo.BackColor = SystemColors.Control;
-            codigo.Text = CodigoSiguiente().ToString("VEN-00000");
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            Padding = new Padding(0),
+            AutoSize = false
+        };
+        contenido.MinimumSize = new Size(900, 620);
+        contenido.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        contenido.RowStyles.Add(new RowStyle(SizeType.Absolute, 350));
+        contenido.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        contenido.Controls.Add(CrearZonaSuperior(), 0, 0);
+        contenido.Controls.Add(CrearZonaHistorial(), 0, 1);
+        Controls.Add(contenido);
+        RefrescarDatos();
+    }
 
-            ConfigurarGrillaVentas();
-            ConfigurarGrillaDetalles();
-            cliente.DisplayMember = nameof(Cliente.Nombre); cliente.DataSource = appState.Clientes;
-            empleado.DisplayMember = nameof(Empleado.Nombre); empleado.DataSource = appState.Empleados;
-            producto.DisplayMember = nameof(Producto.Nombre); producto.DataSource = appState.Productos;
+    public void RefrescarDatos()
+    {
+        try
+        {
+            dgvVentas.DataSource = appState.ObtenerVentas(txtBuscar.Text);
+            codigo.Text = $"VEN-{appState.SiguienteCodigoVenta():00000}";
+            ConfigurarCombos();
+        }
+        catch (Exception exception) { MostrarError(exception); }
+    }
 
-            TableLayoutPanel formulario = new() { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 4, Padding = new Padding(0, 8, 0, 8) };
-            formulario.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
-            formulario.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            formulario.Controls.Add(ControlUi.Etiqueta("Código de venta"), 0, 0); formulario.Controls.Add(codigo, 1, 0);
-            formulario.Controls.Add(ControlUi.Etiqueta("Cliente"), 0, 1); formulario.Controls.Add(cliente, 1, 1);
-            formulario.Controls.Add(ControlUi.Etiqueta("Empleado"), 0, 2); formulario.Controls.Add(empleado, 1, 2);
-            formulario.Controls.Add(ControlUi.Etiqueta("Producto y cantidad"), 0, 3);
+    private Control CrearZonaSuperior()
+    {
+        TableLayoutPanel columnas = new()
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(0, 0, 0, 10)
+        };
+        columnas.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 350));
+        columnas.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        columnas.Controls.Add(CrearPanelRegistro(), 0, 0);
+        columnas.Controls.Add(CrearPanelCarrito(), 1, 0);
+        return columnas;
+    }
 
-            FlowLayoutPanel selector = new() { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false };
-            selector.Controls.Add(producto);
-            selector.Controls.Add(new Label { Text = "Cantidad", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 9, 8, 0), ForeColor = ControlUi.Texto });
-            selector.Controls.Add(cantidad);
-            Button anadir = ControlUi.Boton("Añadir producto a la lista"); anadir.Click += (_, _) => AñadirProducto(); selector.Controls.Add(anadir);
-            formulario.Controls.Add(selector, 1, 3);
+    private Control CrearPanelRegistro()
+    {
+        Panel panel = new() { Dock = DockStyle.Fill, Padding = new Padding(0, 0, 10, 0), MinimumSize = new Size(330, 0) };
+        TableLayoutPanel formulario = new()
+        {
+            Dock = DockStyle.Top,
+            ColumnCount = 2,
+            RowCount = 6,
+            AutoSize = true,
+            Padding = new Padding(0, 0, 0, 8)
+        };
+        formulario.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118));
+        formulario.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        Label titulo = CrearTitulo("Registrar Venta");
+        formulario.Controls.Add(titulo, 0, 0);
+        formulario.SetColumnSpan(titulo, 2);
+        formulario.Controls.Add(ControlUi.Etiqueta("Código de venta"), 0, 1); formulario.Controls.Add(codigo, 1, 1);
+        formulario.Controls.Add(ControlUi.Etiqueta("Cliente"), 0, 2); formulario.Controls.Add(cliente, 1, 2);
+        formulario.Controls.Add(ControlUi.Etiqueta("Empleado"), 0, 3); formulario.Controls.Add(empleado, 1, 3);
+        formulario.Controls.Add(ControlUi.Etiqueta("Producto"), 0, 4); formulario.Controls.Add(producto, 1, 4);
+        formulario.Controls.Add(ControlUi.Etiqueta("Cantidad"), 0, 5); formulario.Controls.Add(cantidad, 1, 5);
 
-            Panel acciones = new() { Dock = DockStyle.Top, Height = 48 };
-            Button crear = ControlUi.Boton("Crear venta"); crear.Click += (_, _) => CrearVenta();
-            Button eliminar = ControlUi.Boton("Eliminar venta"); eliminar.Click += (_, _) => EliminarVenta();
-            acciones.Controls.Add(crear); acciones.Controls.Add(eliminar);
+        Button anadir = ControlUi.Boton("Añadir al carrito");
+        anadir.Dock = DockStyle.Top;
+        anadir.Click += (_, _) => AnadirProducto();
+        panel.Controls.Add(anadir);
+        panel.Controls.Add(formulario);
+        return panel;
+    }
 
-            Panel detallesTitulo = new() { Dock = DockStyle.Top, Height = 28 };
-            detallesTitulo.Controls.Add(new Label { Text = "Detalles de la venta actual", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = ControlUi.Texto });
-            Panel ventasTitulo = new() { Dock = DockStyle.Top, Height = 28 };
-            ventasTitulo.Controls.Add(new Label { Text = "Ventas registradas", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = ControlUi.Texto });
-            Panel busqueda = ControlUi.Busqueda(txtBuscar, (_, _) => Filtrar(), (_, _) => ListarTodos());
+    private Control CrearPanelCarrito()
+    {
+        TableLayoutPanel panel = new()
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+            Padding = new Padding(10, 0, 0, 0)
+        };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 160));
+        panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        panel.Controls.Add(CrearTitulo("Detalles de la Venta Actual", 10, 10), 0, 0);
+        panel.Controls.Add(dgvCarrito, 0, 1);
+        panel.Controls.Add(CrearFilaCarrito(), 0, 2);
+        return panel;
+    }
 
-            Controls.Add(grid);
-            Controls.Add(busqueda);
-            Controls.Add(ventasTitulo);
-            Controls.Add(acciones);
-            Controls.Add(detallesGrid);
-            Controls.Add(detallesTitulo);
-            Controls.Add(formulario);
-            Controls.Add(new Label { Text = "Ventas", Dock = DockStyle.Top, Height = 38, Font = new Font("Segoe UI", 20, FontStyle.Bold), ForeColor = ControlUi.Texto });
+    private Control CrearFilaCarrito()
+    {
+        TableLayoutPanel fila = new() { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(0, 8, 0, 0) };
+        fila.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        fila.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        fila.Controls.Add(totalAcumulado, 0, 0);
+
+        FlowLayoutPanel botones = new() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoSize = true };
+        Button quitar = ControlUi.Boton("Quitar producto");
+        quitar.Click += (_, _) => QuitarDetalle();
+        Button crear = ControlUi.Boton("Crear venta");
+        crear.Click += (_, _) => CrearVenta();
+        botones.Controls.Add(quitar);
+        botones.Controls.Add(crear);
+        fila.Controls.Add(botones, 1, 0);
+        return fila;
+    }
+
+    private Control CrearZonaHistorial()
+    {
+        TableLayoutPanel historial = new() { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(0, 4, 0, 0) };
+        historial.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        historial.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+        historial.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+        historial.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        historial.Controls.Add(CrearTitulo("Ventas Registradas", 10, 10), 0, 0);
+        historial.Controls.Add(ControlUi.Busqueda(txtBuscar, (_, _) => RefrescarDatos(), (_, _) => { txtBuscar.Clear(); RefrescarDatos(); }), 0, 1);
+        historial.Controls.Add(dgvVentas, 0, 2);
+        return historial;
+    }
+
+    private static Label CrearTitulo(string texto, int size = 20, int leftMargin = 0) => new() { Text = texto, Dock = DockStyle.Fill, Font = new Font("Segoe UI", Math.Max(9, size), FontStyle.Bold), ForeColor = ControlUi.Texto, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(leftMargin, 0, 0, 0) };
+
+    private void ConfigurarGrillaVentas()
+    {
+        dgvVentas.Name = "dgvVentas";
+        dgvVentas.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Código", DataPropertyName = nameof(Venta.Codigo) });
+        dgvVentas.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Cliente", Name = "Cliente" });
+        dgvVentas.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Empleado", Name = "Empleado" });
+        dgvVentas.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Fecha", DataPropertyName = nameof(Venta.FechaVenta), DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
+        ControlUi.ConfigurarGrid(dgvVentas);
+        dgvVentas.CellFormatting += FormatearVenta;
+    }
+
+    private void ConfigurarGrillaCarrito()
+    {
+        dgvCarrito.Name = "dgvCarrito";
+        dgvCarrito.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Producto", DataPropertyName = nameof(DetalleVentaVista.Producto) });
+        dgvCarrito.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Cantidad", DataPropertyName = nameof(DetalleVentaVista.Cantidad) });
+        dgvCarrito.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Precio Unitario", DataPropertyName = nameof(DetalleVentaVista.PrecioUnitario), DefaultCellStyle = new DataGridViewCellStyle { Format = "C2" } });
+        dgvCarrito.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Subtotal", DataPropertyName = nameof(DetalleVentaVista.Subtotal), DefaultCellStyle = new DataGridViewCellStyle { Format = "C2" } });
+        ControlUi.ConfigurarGrid(dgvCarrito);
+        dgvCarrito.Dock = DockStyle.Fill;
+        dgvCarrito.DataSource = detallesPendientes;
+    }
+
+    private void ConfigurarCombos()
+    {
+        try
+        {
+            cliente.DataSource = appState.ObtenerUsuarios(AppState.RolCliente);
+            cliente.DisplayMember = nameof(Usuario.Nombre);
+            cliente.ValueMember = nameof(Usuario.Id);
+            empleado.DataSource = appState.ObtenerUsuarios(AppState.RolEmpleado);
+            empleado.DisplayMember = nameof(Usuario.Nombre);
+            empleado.ValueMember = nameof(Usuario.Id);
+            producto.DataSource = appState.ObtenerProductos();
+            producto.DisplayMember = nameof(Producto.Nombre);
+            producto.ValueMember = nameof(Producto.Codigo);
+        }
+        catch (Exception exception) { MostrarError(exception); }
+    }
+
+    private void AnadirProducto()
+    {
+        if (producto.SelectedItem is not Producto seleccionado) { MessageBox.Show("Seleccione un producto."); return; }
+        DetalleVentaVista? existente = detallesPendientes.FirstOrDefault(item => item.ProductoCodigo == seleccionado.Codigo);
+        if (existente is null) detallesPendientes.Add(new DetalleVentaVista(seleccionado.Codigo, seleccionado.Nombre, (int)cantidad.Value, seleccionado.PrecioVenta));
+        else { existente.Cantidad += (int)cantidad.Value; dgvCarrito.Refresh(); }
+        ActualizarTotal();
+    }
+
+    private void QuitarDetalle()
+    {
+        if (dgvCarrito.CurrentRow?.DataBoundItem is not DetalleVentaVista detalle) return;
+        detallesPendientes.Remove(detalle);
+        ActualizarTotal();
+    }
+
+    private void CrearVenta()
+    {
+        if (cliente.SelectedValue is not int clienteId || empleado.SelectedValue is not int empleadoId || detallesPendientes.Count == 0)
+        {
+            MessageBox.Show("Seleccione cliente, empleado y añada al menos un producto.");
+            return;
+        }
+        try
+        {
+            appState.CrearVenta(clienteId, empleadoId, detallesPendientes.Select(item => (item.ProductoCodigo, item.Cantidad)));
+            detallesPendientes.Clear();
+            ActualizarTotal();
             RefrescarDatos();
         }
-
-        public void RefrescarDatos() => ListarTodos();
-
-        private void ConfigurarGrillaVentas()
-        {
-            grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Código", Name = "Codigo" });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Cliente", Name = "Cliente" });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Empleado", Name = "Empleado" });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Fecha", Name = "Fecha" });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Total", Name = "Total", DefaultCellStyle = new DataGridViewCellStyle { Format = "C2" } });
-            ControlUi.ConfigurarGrid(grid);
-            grid.CellFormatting += FormatearVenta;
-        }
-
-        private void ConfigurarGrillaDetalles()
-        {
-            detallesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Código producto", DataPropertyName = nameof(DetalleVenta.ProductoCodigo) });
-            detallesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Producto", DataPropertyName = nameof(DetalleVenta.ProductoNombre) });
-            detallesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Cantidad", DataPropertyName = nameof(DetalleVenta.Cantidad) });
-            detallesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Precio unitario", DataPropertyName = nameof(DetalleVenta.PrecioUnitario), DefaultCellStyle = new DataGridViewCellStyle { Format = "C2" } });
-            detallesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Subtotal", DataPropertyName = nameof(DetalleVenta.Subtotal), DefaultCellStyle = new DataGridViewCellStyle { Format = "C2" } });
-            ControlUi.ConfigurarGrid(detallesGrid);
-            detallesGrid.Height = 145;
-            detallesGrid.DataSource = detallesPendientes;
-        }
-
-        private void AñadirProducto()
-        {
-            if (producto.SelectedItem is not Producto seleccionado) { MessageBox.Show("Seleccione un producto."); return; }
-            DetalleVenta? existente = detallesPendientes.FirstOrDefault(item => item.ProductoCodigo == seleccionado.Codigo);
-            if (existente is null)
-            {
-                detallesPendientes.Add(new DetalleVenta { ProductoCodigo = seleccionado.Codigo, ProductoNombre = seleccionado.Nombre, Cantidad = (int)cantidad.Value, PrecioUnitario = seleccionado.PrecioVenta });
-            }
-            else
-            {
-                existente.Cantidad += (int)cantidad.Value;
-                detallesGrid.Refresh();
-            }
-        }
-
-        private void CrearVenta()
-        {
-            if (cliente.SelectedItem is not Cliente clienteSeleccionado || empleado.SelectedItem is not Empleado empleadoSeleccionado || detallesPendientes.Count == 0)
-            {
-                MessageBox.Show("Seleccione cliente, empleado y añada al menos un producto.");
-                return;
-            }
-
-            Venta venta = new() { Codigo = CodigoSiguiente(), Cliente = clienteSeleccionado, Empleado = empleadoSeleccionado, FechaVenta = DateTime.Now };
-            foreach (DetalleVenta detalle in detallesPendientes)
-            {
-                Producto? productoSeleccionado = appState.Productos.FirstOrDefault(item => item.Codigo == detalle.ProductoCodigo);
-                if (productoSeleccionado is not null)
-                {
-                    venta.Productos.Add(productoSeleccionado);
-                    venta.Detalles.Add(new DetalleVenta { ProductoCodigo = detalle.ProductoCodigo, ProductoNombre = detalle.ProductoNombre, Cantidad = detalle.Cantidad, PrecioUnitario = detalle.PrecioUnitario });
-                }
-            }
-            appState.Ventas.Add(venta);
-            appState.ActualizarDetalles();
-            detallesPendientes.Clear();
-            codigo.Text = CodigoSiguiente().ToString("VEN-00000");
-            ListarTodos();
-        }
-
-        private void EliminarVenta()
-        {
-            if (grid.CurrentRow?.DataBoundItem is Venta venta)
-            {
-                appState.Ventas.Remove(venta);
-                appState.ActualizarDetalles();
-                ListarTodos();
-            }
-        }
-
-        private void Filtrar()
-        {
-            string criterio = txtBuscar.Text.Trim();
-            IEnumerable<Venta> resultados = string.IsNullOrWhiteSpace(criterio) ? appState.Ventas : appState.Ventas.Where(item => item.Codigo.ToString().Contains(criterio, StringComparison.OrdinalIgnoreCase) || (item.Cliente?.Nombre?.Contains(criterio, StringComparison.OrdinalIgnoreCase) ?? false) || (item.Empleado?.Nombre?.Contains(criterio, StringComparison.OrdinalIgnoreCase) ?? false));
-            datos.DataSource = resultados.ToList();
-            grid.DataSource = datos;
-        }
-
-        private void ListarTodos()
-        {
-            txtBuscar.Clear();
-            datos.DataSource = appState.Ventas.ToList();
-            grid.DataSource = datos;
-        }
-
-        private void FormatearVenta(object? sender, DataGridViewCellFormattingEventArgs e)
-        {
-            if (e.RowIndex < 0 || grid.Rows[e.RowIndex].DataBoundItem is not Venta venta) return;
-            e.Value = e.ColumnIndex switch { 0 => venta.Codigo, 1 => venta.Cliente?.Nombre, 2 => venta.Empleado?.Nombre, 3 => venta.FechaVenta.ToString("dd/MM/yyyy"), 4 => venta.Detalles.Sum(item => item.Subtotal), _ => e.Value };
-        }
-
-        private int CodigoSiguiente() => appState.Ventas.Count == 0 ? 1 : appState.Ventas.Max(item => item.Codigo) + 1;
+        catch (Exception exception) { MostrarError(exception); }
     }
+
+    private void FormatearVenta(object? sender, DataGridViewCellFormattingEventArgs e)
+    {
+        if (e.RowIndex < 0 || dgvVentas.Rows[e.RowIndex].DataBoundItem is not Venta venta) return;
+        e.Value = e.ColumnIndex switch { 1 => venta.Cliente?.Nombre, 2 => venta.Empleado?.Nombre, _ => e.Value };
+    }
+
+    private void ActualizarTotal() => totalAcumulado.Text = $"Total Acumulado: {detallesPendientes.Sum(item => item.Subtotal):C2}";
+    private void MostrarError(Exception exception) => MessageBox.Show(exception.Message, "Error de base de datos", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+    private sealed class DetalleVentaVista
+    {
+        public DetalleVentaVista(int productoCodigo, string producto, int cantidad, decimal precioUnitario) { ProductoCodigo = productoCodigo; Producto = producto; Cantidad = cantidad; PrecioUnitario = precioUnitario; }
+        public int ProductoCodigo { get; }
+        public string Producto { get; }
+        public int Cantidad { get; set; }
+        public decimal PrecioUnitario { get; }
+        public decimal Subtotal => Cantidad * PrecioUnitario;
+    }
+}

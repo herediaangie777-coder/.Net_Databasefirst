@@ -41,12 +41,12 @@ public sealed class MainForm : Form
         productosButton.Click += (_, _) => MostrarVista(productosControl, productosButton);
         ventasButton.Click += (_, _) => MostrarVista(ventasControl, ventasButton);
         opciones.Controls.AddRange(new Control[] { clientesButton, empleadosButton, productosButton, ventasButton });
-        Button guardarTodo = CrearBotonMenu("Guardar todo");
-        guardarTodo.Dock = DockStyle.Bottom;
-        guardarTodo.Click += (_, _) => GuardarTodo();
+        Button refrescarTodo = CrearBotonMenu("Refrescar datos");
+        refrescarTodo.Dock = DockStyle.Bottom;
+        refrescarTodo.Click += (_, _) => RefrescarTodasLasVistas();
         menu.Controls.Add(opciones);
         menu.Controls.Add(subtitulo);
-        menu.Controls.Add(guardarTodo);
+        menu.Controls.Add(refrescarTodo);
         menu.Controls.Add(marca);
 
         contenido.Dock = DockStyle.Fill;
@@ -72,17 +72,12 @@ public sealed class MainForm : Form
         if (vista is Controls.VentasControl ventas) ventas.RefrescarDatos();
     }
 
-    private void GuardarTodo()
+    private void RefrescarTodasLasVistas()
     {
-        try
-        {
-            appState.GuardarTodo();
-            MessageBox.Show("Todos los datos se guardaron en la carpeta output.", "Guardado completado", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-        catch (IOException ex)
-        {
-            MessageBox.Show(ex.Message, "No se pudo guardar", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+        clientesControl.RefrescarDatos();
+        empleadosControl.RefrescarDatos();
+        productosControl.RefrescarDatos();
+        ventasControl.RefrescarDatos();
     }
 
     private static Button CrearBotonMenu(string texto)
